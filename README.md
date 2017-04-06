@@ -1,0 +1,2 @@
+# DataScienceGame2017
+Repositório para desenvolvimento da competição DataScienceGame2017
