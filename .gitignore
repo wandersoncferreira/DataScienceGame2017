@@ -1,4 +1,8 @@
 # Byte-compiled / optimized / DLL files
+# Ignoring files for the DataScienceCompetition
+*.json
+*.csv
+
 __pycache__/
 *.py[cod]
 *$py.class
