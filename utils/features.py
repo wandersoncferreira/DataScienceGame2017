@@ -2,6 +2,9 @@ import sys
 import multiprocessing as mp
 import pandas as pd
 import requests
+import numpy as np
+from time import sleep
+import os
 
 
 class DataGame(object):
@@ -168,7 +171,7 @@ class DataGame(object):
 class DeezerFeatures(object):
 
 
-    def __init__(self, media_ids=None, album_ids=None, artist_ids=None, create_csv=False, file_number=0):
+    def __init__(self, media_ids=None, album_ids=None, artist_ids=None, create_csv=False, file_number=0, ntimes=4):
         self.media_ids = media_ids
         self.album_ids = album_ids
         self.file_number = file_number
@@ -177,11 +180,14 @@ class DeezerFeatures(object):
         self.track_link = "https://api.deezer.com/track/TRACK_ID"
         self.album_link = "https://api.deezer.com/album/ALBUM_ID"
         self.artist_link = "https://api.deezer.com/artist/ARTIST_ID"
+        self.finished = False
+        self.ntimes = ntimes
 
 
     def track_features(self, media_id):
+        proxies = self.random_proxies()
         track = self.track_link.replace("TRACK_ID", str(media_id))
-        response = requests.get(track)
+        response = requests.get(track, proxies=proxies)
         rjson = response.json()
         try:
             error = rjson["error"]
@@ -195,8 +201,9 @@ class DeezerFeatures(object):
         return dict_resp
 
     def album_features(self, album_id):
+        proxies = self.random_proxies()
         album = self.album_link.replace("ALBUM_ID", str(album_id))
-        response = requests.get(album)
+        response = requests.get(album, proxies=proxies)
         rjson = response.json()
         try:
             error = rjson["error"]
@@ -214,6 +221,7 @@ class DeezerFeatures(object):
 
     def artist_features(self, artist_id):
         artist = self.artist_link.replace("ARTIST_ID", str(artist_id))
+        sleep(2)
         response = requests.get(artist)
         rjson = response.json()
         try:
@@ -230,8 +238,11 @@ class DeezerFeatures(object):
         return dict_resp
 
     def __multiprocessing(self, ids, func_ids):
+        import random
+
         results = []
-        pool = mp.Pool(processes=mp.cpu_count() - 1)
+        pool = mp.Pool(processes=30)
+
 
         for _id in ids:
             results.append(pool.apply_async(func_ids, [_id]))
@@ -250,11 +261,28 @@ class DeezerFeatures(object):
         df_artist = None
         df_media = None
         df_album = None
+        n = 0
 
         if self.artist_ids:
-            df_artist = self.__multiprocessing(self.artist_ids, self.artist_features)
-            if self.create_csv:
-                df_artist.to_csv("artist_features_from_deezer_{}.csv".format(self.file_number), sep=";", index=False)
+            artist_ids = self.artist_ids
+            number = self.file_number
+            while self.finished == False and n <= self.ntimes:
+                df_artist = self.__multiprocessing(artist_ids, self.artist_features)
+                
+                if self.create_csv:
+                    df_artist.to_csv("artist_features_from_deezer_{}.csv".format(number), sep=";", index=False)
+                    check_df = pd.read_csv("artist_features_from_deezer_{}.csv".format(number), sep=";")
+                    artist_ids = check_df[(pd.isnull(check_df["artist_albuns"]))]["artist_id"].tolist()
+
+                    if len(artist_ids) > 0:
+                        n += 1
+                        number += 1
+                        print("Ainda restam {} tentativas e {} valores NULL \n\n\n".format(self.ntimes - n, len(artist_ids)))
+                    else:
+                        self.finished = True
+                        print("Terminou!!\n\n")
+                        
+                
 
         if self.media_ids:
             df_media = self.__multiprocessing(self.media_ids, self.track_features)
