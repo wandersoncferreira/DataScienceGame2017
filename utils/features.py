@@ -6,6 +6,80 @@ import numpy as np
 from time import sleep
 import os
 
+def number_musics_listened(df_user, user_id):
+    list_feats = ["nmidia_with_flow", "nmidia_regular", "nmidia_with_flow_listened",
+                  "nmidia_regular_listened", "nmidia_max_repeat"]
+    max_repeat = df_user["media_id"].value_counts().values[0]
+    with_flow = len(df_user[(df_user["listen_type"] == 1)]["media_id"].unique())
+    regular = len(df_user[(df_user["listen_type"] == 0)]["media_id"].unique())
+    with_flow_listened = len(df_user[(df_user["listen_type"] == 1) & (df_user["is_listened"] == 1)]["media_id"].unique())
+    regular_listened = len(df_user[(df_user["listen_type"] == 0) & (df_user["is_listened"] == 1)]["media_id"].unique())
+
+    df_user[list_feats] = df_user.apply(lambda row: pd.Series([with_flow, regular, with_flow_listened, regular_listened, max_repeat]), axis=1)
+    df_user.set_index("user_id", inplace=True)
+    return df_user[list_feats].iloc[0:1]
+
+def number_artists_listened(df_user, user_id):
+    list_feats = ["nartist_with_flow", "nartist_regular", "nartist_with_flow_listened", "nartist_regular_listened"]
+    with_flow = len(df_user[(df_user["listen_type"] == 1)]["artist_id"].unique())
+    regular = len(df_user[(df_user["listen_type"] == 0)]["artist_id"].unique())
+    # case where is_listened equals to 1
+    with_flow_listened = len(df_user[(df_user["listen_type"] == 1) & (df_user["is_listened"] == 1)]["artist_id"].unique())
+    regular_listened = len(df_user[(df_user["listen_type"] == 0) & (df_user["is_listened"] == 1)]["artist_id"].unique())
+    df_user[list_feats] = df_user.apply(lambda row: pd.Series([with_flow, regular, with_flow_listened, regular_listened]), axis=1)
+    list_return = list_feats + ["user_id"]
+    df_user.set_index("user_id", inplace=True)
+    return df_user[list_feats].iloc[0:1]
+
+
+def number_platform(df_user, user_id):
+    list_feats = ["nplatform_with_flow", "nplatform_regular", "nplatform_with_flow_listened", "nplatform_regular_listened"]
+    # case where is_listened was not fixed
+    with_flow = len(df_user[(df_user["listen_type"] == 1)]["platform_name"].unique())
+    regular = len(df_user[(df_user["listen_type"] == 0)]["platform_name"].unique())
+
+    # case where is_listened equals to 1
+    with_flow_listened = len(df_user[(df_user["listen_type"] == 1) & (df_user["is_listened"] == 1)]["platform_name"].unique())
+    regular_listened = len(df_user[(df_user["listen_type"] == 0) & (df_user["is_listened"] == 1)]["platform_name"].unique())
+    df_user[list_feats] = df_user.apply(lambda row: pd.Series([with_flow, regular, with_flow_listened, regular_listened]), axis=1)
+    list_return = list_feats + ["user_id"]
+    df_user.set_index("user_id", inplace=True)
+    return df_user[list_feats].iloc[0:1]
+
+
+def qtd_success_flow_noflow(df_user, user_id):
+    list_feats = ["nmidia_noflow", "nmidia_noflow_sucess", "nmidia_noflow_sucess_PROP",
+                  "nmodia_flow", "nmidia_flow_success", "midia_flow_success_PROP",
+                  "PROP_flow_PROP_noflow", "qtd_flow_noflow_PROP"]
+
+    # reproducoes com sucesso em nao-flow
+    qtd_musics_noflow = df_user[(df_user["listen_type"] == 0)].__len__()
+    qtd_musics_noflow_success = df_user[(df_user["is_listened"] == 1) & (df_user["listen_type"] == 0)].__len__()
+    prop_musics_noflow_success = qtd_musics_noflow_success / qtd_musics_noflow
+
+    # reproducoes em modo flow
+    df_flow = df_user[(df_user["listen_type"] == 1)].copy()
+    qtd_musics_flow = len(df_flow)
+    qtd_musics_flow_success = df_flow[(df_flow["is_listened"] == 1)].__len__()
+    prop_musics_flow_success = qtd_musics_flow_success / qtd_musics_flow
+
+    # prop qtd_noflow / qtd_flow
+    prop_qtd_flow_noflow = qtd_musics_flow / qtd_musics_noflow
+
+    # proporcao entre flow_success e noflow_successs
+    prop_prop = prop_musics_flow_success / prop_musics_noflow_success
+
+    df_user[list_feats] = df_user.apply(lambda row: pd.Series([qtd_musics_noflow,
+                                                               qtd_musics_noflow_success,
+                                                               prop_musics_noflow_success,
+                                                               qtd_musics_flow,
+                                                               qtd_musics_flow_success,
+                                                               prop_musics_flow_success,
+                                                               prop_prop,
+                                                               prop_qtd_flow_noflow]), axis=1)
+    df_user.set_index("user_id", inplace=True)
+    return df_user[list_feats].iloc[0:1]
+
 
 class DataGame(object):
 
@@ -30,82 +104,6 @@ class DataGame(object):
         user_ids = self.df["user_id"].unique().tolist()
         return user_ids
 
-    def number_musics_listened(self, user_id):
-        df_user = self.df[(self.df["user_id"] == user_id)].copy()
-        list_feats = ["nmidia_with_flow", "nmidia_regular", "nmidia_with_flow_listened",
-                      "nmidia_regular_listened", "nmidia_max_repeat"]
-        max_repeat = df_user["media_id"].value_counts().values[0]
-        with_flow = len(df_user[(df_user["listen_type"] == 1)]["media_id"].unique())
-        regular = len(df_user[(df_user["listen_type"] == 0)]["media_id"].unique())
-        with_flow_listened = len(df_user[(df_user["listen_type"] == 1) & (df_user["is_listened"] == 1)]["media_id"].unique())
-        regular_listened = len(df_user[(df_user["listen_type"] == 0) & (df_user["is_listened"] == 1)]["media_id"].unique())
-
-        df_user[list_feats] = df_user.apply(lambda row: pd.Series([with_flow, regular, with_flow_listened, regular_listened, max_repeat]), axis=1)
-        df_user.set_index("user_id", inplace=True)
-        return df_user[list_feats].iloc[0:1]
-
-    def number_artists_listened(self, user_id):
-        df_user = self.df[(self.df["user_id"] == user_id)].copy()
-        list_feats = ["nartist_with_flow", "nartist_regular", "nartist_with_flow_listened", "nartist_regular_listened"]
-        with_flow = len(df_user[(df_user["listen_type"] == 1)]["artist_id"].unique())
-        regular = len(df_user[(df_user["listen_type"] == 0)]["artist_id"].unique())
-        # case where is_listened equals to 1
-        with_flow_listened = len(df_user[(df_user["listen_type"] == 1) & (df_user["is_listened"] == 1)]["artist_id"].unique())
-        regular_listened = len(df_user[(df_user["listen_type"] == 0) & (df_user["is_listened"] == 1)]["artist_id"].unique())
-        df_user[list_feats] = df_user.apply(lambda row: pd.Series([with_flow, regular, with_flow_listened, regular_listened]), axis=1)
-        list_return = list_feats + ["user_id"]
-        df_user.set_index("user_id", inplace=True)
-        return df_user[list_feats].iloc[0:1]
-
-
-    def number_platform(self, user_id):
-        df_user = self.df[(self.df["user_id"] == user_id)].copy()
-        list_feats = ["nplatform_with_flow", "nplatform_regular", "nplatform_with_flow_listened", "nplatform_regular_listened"]
-        # case where is_listened was not fixed
-        with_flow = len(df_user[(df_user["listen_type"] == 1)]["platform_name"].unique())
-        regular = len(df_user[(df_user["listen_type"] == 0)]["platform_name"].unique())
-
-        # case where is_listened equals to 1
-        with_flow_listened = len(df_user[(df_user["listen_type"] == 1) & (df_user["is_listened"] == 1)]["platform_name"].unique())
-        regular_listened = len(df_user[(df_user["listen_type"] == 0) & (df_user["is_listened"] == 1)]["platform_name"].unique())
-        df_user[list_feats] = df_user.apply(lambda row: pd.Series([with_flow, regular, with_flow_listened, regular_listened]), axis=1)
-        list_return = list_feats + ["user_id"]
-        df_user.set_index("user_id", inplace=True)
-        return df_user[list_feats].iloc[0:1]
-
-    def qtd_success_flow_noflow(user_id):
-        df_user = self.df[(self.df["user_id"] == user_id)].copy()
-        list_feats = ["nmidia_noflow", "nmidia_noflow_sucess", "nmidia_noflow_sucess_PROP",
-                      "nmodia_flow", "nmidia_flow_success", "midia_flow_success_PROP",
-                      "PROP_flow_PROP_noflow", "qtd_flow_noflow_PROP"]
-
-        # reproducoes com sucesso em nao-flow
-        qtd_musics_noflow = df_user[(df_user["listen_type"] == 0)].__len__()
-        qtd_musics_noflow_success = df_user[(df_user["is_listened"] == 1) & (df_user["listen_type"] == 0)].__len__()
-        prop_musics_noflow_success = qtd_musics_noflow_success / qtd_musics_noflow
-
-        # reproducoes em modo flow
-        df_flow = df_user[(df_user["listen_type"] == 1)].copy()
-        qtd_musics_flow = len(df_flow)
-        qtd_musics_flow_success = df_flow[(df_flow["is_listened"] == 1)].__len__()
-        prop_musics_flow_success = qtd_musics_flow_success / qtd_musics_flow
-
-        # prop qtd_noflow / qtd_flow
-        prop_qtd_flow_noflow = qtd_musics_flow / qtd_musics_noflow
-
-        # proporcao entre flow_success e noflow_successs
-        prop_prop = prop_musics_flow_success / prop_musics_noflow_success
-
-        df_user[list_feats] = df_user.apply(lambda row: pd.Series([qtd_musics_noflow,
-                                                                   qtd_musics_noflow_success,
-                                                                   prop_musics_noflow_success,
-                                                                   qtd_musics_flow,
-                                                                   qtd_musics_flow_success,
-                                                                   prop_musics_flow_success,
-                                                                   prop_prop,
-                                                                   prop_qtd_flow_noflow]), axis=1)
-        df_user.set_index("user_id", inplace=True)
-        return df_user[list_feats].iloc[0:1]
 
     def combine_user_features(self, result_df_users, features):
         if self.status_user_features:
@@ -126,10 +124,10 @@ class DataGame(object):
             return False
 
     def __multiprocessing(self, feature):
-        __dict_features__ = {"nmidia": self.number_musics_listened,
-                             "nartist": self.number_artists_listened,
-                             "nplatform": self.number_platform,
-                             "flow_noflow": self.qtd_success_flow_noflow}
+        __dict_features__ = {"nmidia": number_musics_listened,
+                             "nartist": number_artists_listened,
+                             "nplatform": number_platform,
+                             "flow_noflow": qtd_success_flow_noflow}
         results = []
         pool = mp.Pool(processes=mp.cpu_count() - 1)
         func = __dict_features__[feature]
@@ -140,13 +138,17 @@ class DataGame(object):
             list_of_users = self.user_ids
 
         for user_id in list_of_users:
-            results.append(pool.apply_async(func, [user_id]))
+            df_user = self.df[(self.df["user_id"] == user_id)].copy()
+            results.append(pool.apply_async(func, [df_user, user_id]))
         pool.close()
         pool.join()
 
         df_res = []
         for r in results:
-            df_res.append(r.get())
+            try:
+                df_res.append(r.get())
+            except:
+                pass
         result_df_user = pd.concat(df_res)
         return result_df_user
 
@@ -185,9 +187,8 @@ class DeezerFeatures(object):
 
 
     def track_features(self, media_id):
-        proxies = self.random_proxies()
         track = self.track_link.replace("TRACK_ID", str(media_id))
-        response = requests.get(track, proxies=proxies)
+        response = requests.get(track)
         rjson = response.json()
         try:
             error = rjson["error"]
@@ -201,7 +202,6 @@ class DeezerFeatures(object):
         return dict_resp
 
     def album_features(self, album_id):
-        proxies = self.random_proxies()
         album = self.album_link.replace("ALBUM_ID", str(album_id))
         response = requests.get(album, proxies=proxies)
         rjson = response.json()
@@ -268,7 +268,7 @@ class DeezerFeatures(object):
             number = self.file_number
             while self.finished == False and n <= self.ntimes:
                 df_artist = self.__multiprocessing(artist_ids, self.artist_features)
-                
+
                 if self.create_csv:
                     df_artist.to_csv("artist_features_from_deezer_{}.csv".format(number), sep=";", index=False)
                     check_df = pd.read_csv("artist_features_from_deezer_{}.csv".format(number), sep=";")
@@ -281,8 +281,8 @@ class DeezerFeatures(object):
                     else:
                         self.finished = True
                         print("Terminou!!\n\n")
-                        
-                
+
+
 
         if self.media_ids:
             df_media = self.__multiprocessing(self.media_ids, self.track_features)
